@@ -7,32 +7,16 @@ namespace PostgreSql_Core
 {
     class Program
     {
-
-        static NpgsqlConnection _connection;
-        static string _connString;
+        private const int TableWidth = 199;
+        private static NpgsqlConnection _connection;
+        private static string _connString;
+        private static ConsoleColor queryColor = ConsoleColor.Yellow;
+        private static ConsoleColor tableColor = ConsoleColor.DarkGray;
+        private static ConsoleColor columnNameColor = ConsoleColor.DarkBlue;
+        private static ConsoleColor cellColor = ConsoleColor.Blue;
 
         static void Main(string[] args)
         {
-            // bool exit = false;
-            // string command;
-            //
-            // while (!exit)
-            // {
-            //     command = Console.ReadLine();
-            //     switch (command)
-            //     {
-            //         case "exit":
-            //             exit = true;
-            //             break;
-            //         case "select":
-            //             var a = from ch in command
-            //                 join ch1 in "XXXect" on ch equals ch1
-            //                 select new {ch = ' '};
-            //             break;
-            //     }
-            // }
-
-            Console.WriteLine();
 
             // ------------------------- ПОДКЛЮЧЕНИЕ К БД ------------------------- //
 
@@ -62,26 +46,9 @@ namespace PostgreSql_Core
             // --------------------------ЧТЕНИЕ ИЗ БД ----------------------------- //
 
             string query = "select * from cd.members";
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(query);
-            Console.ForegroundColor = default;
-            var command = new NpgsqlCommand(query, _connection);
-            var reader = command.ExecuteReader();
+            query = "select * from cd.members where recommendedby is not null AND length(firstname) < 5";
 
-            while (reader.Read())
-            {
-                var output =
-                    $"{reader.GetInt32(0)}\t" +
-                    $"{reader.GetString(1)}\t\t" +
-                    $"{reader.GetString(2)}\t\t" +
-                    $"{reader.GetString(3)}\t\t\t" +
-                    $"{reader.GetInt32(4)}\t\t\t" +
-                    $"{reader.GetString(5)}\t\t\t" +
-                    $"{GetSaveInt32(reader,6)}\t\t\t" +
-                    $"{reader.GetDateTime(7)}";
-                Console.WriteLine(output);
-            }
-
+            PrintResultQuery(query);
 
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("ВЫХОД");
@@ -90,15 +57,95 @@ namespace PostgreSql_Core
         public static void Insert(Member m)
         {
             // поменять
-            string sql = "insert into cd.members VALUES (39, 'Surname', 'Firstname', 'Address', 123432, 'telephone', NULL, '2019-07-01 00:00:00')";
+            string sql =
+                "insert into cd.members VALUES (39, 'Surname', 'Firstname', 'Address', 123432, 'telephone', NULL, '2019-07-01 00:00:00')";
             NpgsqlCommand command = new NpgsqlCommand(sql, _connection);
             command.ExecuteNonQuery();
             Console.WriteLine("вставка завершена");
         }
 
-        public static string GetSaveInt32(NpgsqlDataReader reader, int idx)
+        static void PrintResultQuery(string query)
         {
-            return reader.IsDBNull(idx) ? "" : reader.GetInt32(idx).ToString();
+            Console.ForegroundColor = queryColor;
+            Console.WriteLine(query);
+            Console.ForegroundColor = default;
+
+            var command = new NpgsqlCommand(query, _connection);
+            var reader = command.ExecuteReader();
+
+            int count = reader.FieldCount;
+
+            string[] columnNames = new string[count];
+            for (int i = 0; i < count; i++)
+            {
+                columnNames[i] = reader.GetName(i);
+            }
+
+            PrintLine(count);
+            PrintRow(columnNameColor, columnNames);
+            PrintLine(count);
+
+            while (reader.Read())
+            {
+                string[] values = new string [8];
+
+                for (int i = 0; i < count; i++)
+                {
+                    values[i] = reader.GetValue(i).ToString();
+                }
+
+                PrintRow(cellColor, values);
+                PrintLine(count);
+            }
+        }
+
+        static void PrintLine(int countOfRows)
+        {
+            int width = (TableWidth - countOfRows) / countOfRows;
+            string line = "+";
+            ;
+            for (int i = 0; i < countOfRows; i++)
+            {
+                line += new string('-', width) + '+';
+            }
+
+            Console.ForegroundColor = tableColor;
+            Console.WriteLine(line);
+            Console.ForegroundColor = default;
+        }
+
+        static void PrintRow(ConsoleColor color, params string[] columns)
+        {
+            int width = (TableWidth - columns.Length) / columns.Length;
+            string row;
+
+            Console.ForegroundColor = tableColor;
+            Console.Write("|");
+            foreach (string column in columns)
+            {
+                row = AlignCentre(column, width);
+                Console.ForegroundColor = color;
+                Console.Write(row);
+                Console.ForegroundColor = tableColor;
+                Console.Write("|");
+            }
+
+            Console.WriteLine();
+            Console.ForegroundColor = default;
+        }
+
+        static string AlignCentre(string text, int width)
+        {
+            text = text.Length > width ? text.Substring(0, width - 3) + "..." : text;
+
+            if (string.IsNullOrEmpty(text))
+            {
+                return new string(' ', width);
+            }
+            else
+            {
+                return text.PadRight(width - (width - text.Length) / 2).PadLeft(width);
+            }
         }
     }
 
