@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Data;
-using System.Linq;
 using Npgsql;
 
 namespace PostgreSql_Core
 {
-    class Program
+    internal static class Program
     {
         private const int TableWidth = 199;
         private static NpgsqlConnection _connection;
@@ -15,7 +13,7 @@ namespace PostgreSql_Core
         private static ConsoleColor columnNameColor = ConsoleColor.DarkBlue;
         private static ConsoleColor cellColor = ConsoleColor.Blue;
 
-        static void Main(string[] args)
+        private static void Main()
         {
 
             // ------------------------- ПОДКЛЮЧЕНИЕ К БД ------------------------- //
@@ -40,13 +38,19 @@ namespace PostgreSql_Core
 
             // ------------------------- ВСТАВКА К БД ----------------------------- //
 
-            Member member = new Member();
-            //  Insert(member);
+            Member member = new Member()
+            {
+                Surname = "Чекушин",
+                Firstname = "Андрей",
+                Address = "Moscow",
+                Zipcode = 12345,
+                Telephone = "8-916-435-75-03"
+            };
+            Insert(member);
 
-            // --------------------------ЧТЕНИЕ ИЗ БД ----------------------------- //
+            // -------------------------- ЧТЕНИЕ ИЗ БД ---------------------------- //
 
-            string query = "select * from cd.members";
-            query = "select * from cd.members where recommendedby is not null AND length(firstname) < 5";
+            var query = "select * from cd.members order by memid desc limit 7";
 
             PrintResultQuery(query);
 
@@ -54,21 +58,38 @@ namespace PostgreSql_Core
             Console.WriteLine("ВЫХОД");
         }
 
-        public static void Insert(Member m)
+        private static void Insert(Member m)
         {
+            // т.к. БД без автоинкремент id, то сделаем рабочий костыль
+            var sql = "select max(memid) from cd.members";
+            var command = new NpgsqlCommand(sql, _connection);
+            var reader = command.ExecuteReader();
+            reader.Read();
+            m.MemId = reader.GetInt32(0) + 1;
+            reader.Close();
             // поменять
-            string sql =
-                "insert into cd.members VALUES (39, 'Surname', 'Firstname', 'Address', 123432, 'telephone', NULL, '2019-07-01 00:00:00')";
-            NpgsqlCommand command = new NpgsqlCommand(sql, _connection);
+            sql =
+                $"insert into cd.members VALUES ({m.MemId}, '{m.Surname}', '{m.Firstname}', '{m.Address}', {m.Zipcode}, '{m.Telephone}', {m.RecommendedBy as object ?? "default"}, '{m.JoinDate}')";
+
+            PrintQuery(sql);
+
+            command = new NpgsqlCommand(sql, _connection);
             command.ExecuteNonQuery();
             Console.WriteLine("вставка завершена");
         }
 
-        static void PrintResultQuery(string query)
+        #region PrintFunctions
+
+        static void PrintQuery(string query)
         {
             Console.ForegroundColor = queryColor;
             Console.WriteLine(query);
             Console.ForegroundColor = default;
+        }
+
+        static void PrintResultQuery(string query)
+        {
+            PrintQuery(query);
 
             var command = new NpgsqlCommand(query, _connection);
             var reader = command.ExecuteReader();
@@ -97,6 +118,8 @@ namespace PostgreSql_Core
                 PrintRow(cellColor, values);
                 PrintLine(count);
             }
+
+            reader.Close();
         }
 
         static void PrintLine(int countOfRows)
@@ -147,6 +170,8 @@ namespace PostgreSql_Core
                 return text.PadRight(width - (width - text.Length) / 2).PadLeft(width);
             }
         }
+
+        #endregion
     }
 
     public class Member
@@ -157,11 +182,8 @@ namespace PostgreSql_Core
         public string Address { get; set; } = "";
         public int Zipcode { get; set; } = 0;
         public string Telephone { get; set; } = "";
-        public int RecommendedBy { get; set; }
+        public int? RecommendedBy { get; set; } = null;
         public DateTime JoinDate { get; set; } = DateTime.Now;
     }
-
-
-
 
 }
